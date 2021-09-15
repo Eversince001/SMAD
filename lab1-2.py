@@ -42,13 +42,13 @@ def AverageSignalValue(U):
     return AS_Value
 
 def SignalPower(U):
-    TrueValues = 0
+    SP = 0
     AS_Value = AverageSignalValue(U)
     for i in U:
-        TrueValues += (i - AS_Value)**2
+        SP += (i - AS_Value)**2
 
-    TrueValues = TrueValues / (len(U) - 1)
-    return TrueValues
+    SP = SP / (len(U) - 1)
+    return SP
 
 x1,x2=getFactors()
 U=[]
