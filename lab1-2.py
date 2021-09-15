@@ -58,7 +58,7 @@ for i in range(N):
 
 
 w2 = SignalPower(U)
-sigma = sqrt(0.15*(w2))
+sigma = sqrt(0.1*(w2))
 y=[]
 e=[]
 
@@ -67,7 +67,7 @@ for i in range(len(U)):
     y.append(round((U[i] + e[i]),5))
 
 f = open("results.txt", 'w')
-res = '(x1,\t x2)\t\t u\t\t\t e\t\t\t y\n'
+res = '(x1,\t x2)\t\t u\t\t\t e\t\t\t y\t\t\t y^\t\t\t y-y^\n'
 f.write(res)
 for i in range(len(y)):
     res = ''
