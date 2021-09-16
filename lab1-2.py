@@ -2,7 +2,7 @@ import numpy as np
 import random
 from scipy.linalg import *
 from math import sqrt
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
 
 lvl_x1=4
 lvl_x2=5
@@ -10,6 +10,8 @@ N = 30
 
 def u(x1,x2):
     return 0.5 + 1 * x1 + 0.002 * x1**2 + 2 * x2 + 0.003 * x2**2
+
+# f = [1, x1, x2, x1**2, x2**2]
 
 #генерания факторов
 def getFactors():
@@ -65,6 +67,27 @@ e=[]
 for i in range(len(U)):
     e.append(round(np.random.normal(0, sigma),5))
     y.append(round((U[i] + e[i]),5))
+
+
+X=[]
+
+for i in range(N):
+    X.append([0]*5)
+
+for i in range(N):
+    X[i][0] = 1
+
+
+for i in range(N):
+    X[i][1] = x1[i]
+    X[i][2] = x2[i]
+    X[i][3] = round(x1[i]**2, 5)
+    X[i][4] = round(x2[i]**2, 5)
+
+print(X)
+
+
+
 
 f = open("results.txt", 'w')
 res = '(x1,\t x2)\t\t u\t\t\t e\t\t\t y\t\t\t y^\t\t\t y-y^\n'
