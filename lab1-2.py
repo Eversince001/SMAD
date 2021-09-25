@@ -1,8 +1,6 @@
 import numpy as np
 import random
-from scipy.linalg import *
 from math import sqrt
-#from matplotlib import pyplot as plt
 
 lvl_x1=4
 lvl_x2=5
@@ -33,6 +31,7 @@ def getFactors():
         x2 = random.randrange(0, 5)
         X2.append(X2[x2])
 
+
     return X1,X2
 
 def AverageSignalValue(U):
@@ -53,6 +52,7 @@ def SignalPower(U):
     return SP
 
 x1,x2=getFactors()
+
 U=[]
 
 for i in range(N):
@@ -77,14 +77,48 @@ for i in range(N):
 for i in range(N):
     X[i][0] = 1
 
-
 for i in range(N):
     X[i][1] = x1[i]
     X[i][2] = x2[i]
     X[i][3] = round(x1[i]**2, 5)
     X[i][4] = round(x2[i]**2, 5)
 
-print(X)
+ 
+
+tettaR = []
+Xt = np.matrix(X).transpose()
+Xtemp = np.linalg.inv(Xt * np.matrix(X)) * Xt
+
+for i in range(0, len(Xtemp)):
+    temp = 0
+    for j in range(0, np.size(Xtemp[i]) ):
+        temp = temp + Xtemp[i,j] * y[j]
+    tettaR.append(round(temp))
+
+y2 = []
+
+for i in range(0, len(X)):
+    temp = 0
+    for j in range(0, np.size(X[i]) ):
+        temp = temp + X[i][j] * tettaR[j]
+    y2.append(round(temp, 5))
+
+eR = np.array(y) - np.array(y2)
+
+temp = 0
+for i in range(len(eR)):
+    temp += eR[i] * eR[i]
+sigmaR = sqrt(temp / (N - len(tettaR)))
+
+print(sigmaR/sigma)
+    
+
+
+
+
+
+
+
 
 
 
