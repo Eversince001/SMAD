@@ -33,6 +33,7 @@ def getFactors():
 
     return X1,X2
 
+#среднее значение сигнала по выборке
 def AverageSignalValue(U):
     AS_Value=0
     for i in U:
@@ -41,6 +42,7 @@ def AverageSignalValue(U):
     AS_Value /= len(U)
     return AS_Value
 
+#мощность сигнала
 def SignalPower(U):
     SP = 0
     AS_Value = AverageSignalValue(U)
