@@ -86,11 +86,10 @@ for i in range(N):
     X[i][3] = round(x1[i]**2, 5)
     X[i][4] = round(x2[i]**2, 5)
 
-print(X)
 
 
 
-
+ 
 f = open("results.txt", 'w')
 res = '(x1,\t x2)\t\t u\t\t\t e\t\t\t y\t\t\t y^\t\t\t y-y^\n'
 f.write(res)
