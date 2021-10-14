@@ -2,6 +2,9 @@ import numpy as np
 import random
 from scipy import stats
 from math import sqrt
+import csv
+import pandas as pd
+import matplotlib.pyplot as plot
 
 lvl_x1=4
 lvl_x2=5
@@ -68,8 +71,14 @@ def Get_signalPower(U):
 def Get_X():
     X=[]
 
+    #x1 = np.array(x1)
+    #x2 = np.array(x2)
+    #f = [1, x1, x2, x1**2, x2**2, x1*x2]
+    #for i in range(N):
+    #    X.append(f[i])
+
     for i in range(N):
-        X.append([0]*5)
+        X.append([0]*len(tetta))
 
     for i in range(N):
         X[i][0] = 1
@@ -79,6 +88,7 @@ def Get_X():
         X[i][2] = x2[i]
         X[i][3] = round(x1[i]**2, 5)
         X[i][4] = round(x2[i]**2, 5)
+        X[i][5] = round(x1[i] * x2[i], 5)
     return X
 
 def Get_tettaR():
@@ -132,7 +142,41 @@ def Get_sigmaR():
         temp += eR[i] * eR[i]
     return sqrt(temp / (N - len(tettaR)))
 
-def SaveResultInFile():
+def Get_djj(X):
+    Xtemp = np.linalg.inv(np.dot(np.matrix(X).transpose(), np.matrix(X)))
+    djjj = []
+    for i in range(len(Xtemp)):
+        djjj.append(Xtemp[i,i])
+    return djjj
+
+def GetConfidenceInterval(tettaR, Ft, sigmaR, djj):
+    D_upper = np.zeros(len(tettaR))
+    D_lower = np.zeros(len(tettaR))
+    for i in range(len(tettaR)):
+        D_upper[i] = round(tettaR[i] - Ft * np.sqrt(sigmaR * djj[i]), 5)
+        D_lower[i] = round(tettaR[i] + Ft * np.sqrt(sigmaR * djj[i]), 5)
+    return D_upper, D_lower
+
+def Get_StatF(tettaR, djj, sigmaR):
+    Fstat = []
+    for i in range(len(tettaR)):
+        Fstat.append(round((tettaR[i]) ** 2 / (sigmaR * djj[i]), 5))
+    return Fstat
+
+def Get_RRS(y, X, tettaR):
+    RSS = np.dot(np.transpose(y - np.dot(X, tettaR)), y - np.dot(X, tettaR))
+    return RSS
+
+def Get_RRSH():
+    RSSH = 0
+    for i in range(len(y)): 
+        RSSH += (y[i] - np.average(y))**2
+    return RSSH
+
+def Get_valHip(RSS, RSSH, N, m):
+    return ((RSSH - RSS)/ (m - 1)) / (RSS / (N - m))
+
+def SaveResultInTextFile():
     f = open("results.txt", 'w')
     res = '(x1,\t x2)\t\t u\t\t\t e\t\t\t y\t\t\t y^\t\t\t y-y^\n'
     f.write(res)
@@ -143,6 +187,31 @@ def SaveResultInFile():
         res += '\n'
         f.write(res)
     f.close()
+
+def ReadValueFromCSVFile():
+        with open('results.csv', 'r') as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter='\t')
+            dataForAnalys = np.array(list(csv_reader))
+            np.delete(dataForAnalys, (0), axis=0)
+            x1 = dataForAnalys[:, 0]
+            x1 = [float(x) for x in x1]
+            x2 = dataForAnalys[:, 1]
+            x2 = [float(x) for x in x2]
+            y = dataForAnalys[:, 3]
+            y = [float(y) for y in y]
+            e = dataForAnalys[:, 4]
+            e = [float(e) for e in e]
+            return x1, x2, e, y
+
+def create_table(df):
+    fig, ax = plot.subplots()
+    fig.patch.set_visible(False)
+    ax.axis('off')
+    ax.axis('tight')
+    table = ax.table(cellText=df.values, colLabels=df.columns, loc='center')   
+    table.auto_set_font_size(False)
+    table.set_fontsize(8)
+    fig.tight_layout()
 
 x1,x2 = Get_factors()
 U = Get_U()
@@ -157,12 +226,41 @@ y2 = Get_y2()
 eR = np.array(y) - np.array(y2)
 
 sigmaR = Get_sigmaR()
+F = sigmaR/sigma
 
-print(sigma)
-print(sigmaR)
-print(sigmaR/sigma)
-    
-ty = stats.f.sf(1 - alpha, N - len(tetta), 99999999999999)
-print(ty)
+#lw2:2 confidence interval
+Ft = stats.t.ppf(1 - alpha, N - len(tetta))
+djj = Get_djj(X)
+D_upper, D_lower = GetConfidenceInterval(tettaR, Ft, sigmaR, djj)
+df = pd.DataFrame()
+df['Нижнее значение'] = D_lower
+df['Тетта'] = tetta
+df['Оценка тетта'] = tettaR
+df['Верхнее значение'] = D_upper
 
-SaveResultInFile()
+#lw2:3
+Fstat = Get_StatF(tettaR, djj, sigmaR)
+Ff = stats.f.ppf(1-alpha/2, 1, N - len(tetta))
+resultEx3 = []
+for i in range(len(tettaR)):
+    if(Fstat[i] < Ff):
+        resultEx3.append('+')
+    else:
+        resultEx3.append('-')
+df['F stat'] = Fstat
+df['Отверг'] = resultEx3
+
+resultEx4 = []
+
+#lw2:4
+RRS = Get_RRS(y, X, tettaR)
+RRSH = Get_RRSH(y)
+F_valHip = Get_valHip(RRS, RRSH, N, len(tettaR))
+if(F_valHip < Ff):
+    resultEx4.append('+')
+else:
+    resultEx4.append('-')
+
+create_table(df)
+
+SaveResultInTextFile()
