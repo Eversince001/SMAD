@@ -68,7 +68,7 @@ def Get_signalPower(U):
     SP = SP / (len(U) - 1)
     return SP
 
-def Get_X():
+def Get_X(x1, x2):
     X=[]
 
     #x1 = np.array(x1)
@@ -91,7 +91,7 @@ def Get_X():
         X[i][5] = round(x1[i] * x2[i], 5)
     return X
 
-def Get_tettaR():
+def Get_tettaR(X, y):
     tettaR = []
     Xt = np.matrix(X).transpose()
     Xtemp = np.linalg.inv(Xt * np.matrix(X)) * Xt
@@ -103,7 +103,7 @@ def Get_tettaR():
         tettaR.append(round(temp, 5))
     return tettaR
 
-def Get_y2():
+def Get_y2(X, tettaR):
     y2 = []
     for i in range(0, len(X)):
         temp = 0
@@ -112,7 +112,7 @@ def Get_y2():
         y2.append(round(temp, 5))
     return y2
 
-def Get_U():
+def Get_U(x1,x2):
     U = []
     for i in range(N):
         U.append(round(u(x1[i], x2[i]),5))
@@ -122,21 +122,19 @@ def Get_sigma(U):
     w2 = Get_signalPower(U)
     return sqrt(0.1*(w2))
 
-def Get_e():
+def Get_e(U, sigma):
     e = []
-    U=Get_U()
     for i in range(len(U)):
         e.append(round(np.random.normal(0, sigma),5))
     return e
 
-def Get_y():
+def Get_y(U, e):
     y = []
-    U=Get_U()
     for i in range(len(U)):
         y.append(round((U[i] + e[i]),5))
     return y
 
-def Get_sigmaR():
+def Get_sigmaR(eR, tettaR):
     temp = 0
     for i in range(len(eR)):
         temp += eR[i] * eR[i]
@@ -167,7 +165,7 @@ def Get_RRS(y, X, tettaR):
     RSS = np.dot(np.transpose(y - np.dot(X, tettaR)), y - np.dot(X, tettaR))
     return RSS
 
-def Get_RRSH():
+def Get_RRSH(y):
     RSSH = 0
     for i in range(len(y)): 
         RSSH += (y[i] - np.average(y))**2
@@ -176,7 +174,22 @@ def Get_RRSH():
 def Get_valHip(RSS, RSSH, N, m):
     return ((RSSH - RSS)/ (m - 1)) / (RSS / (N - m))
 
-def SaveResultInTextFile():
+def Get_confidenceIntervalForMO():
+    x1 = 0
+    x2 = 0
+    x3 = -1 
+    ettatetta = [[0]*3 for i in range (21)]
+    for i in range(21):
+        f = [1,x1,x1**2,x2,x2**2,x3,x3**2,x1*x2,x1*x3,x2*x3]
+        sigma_ =  np.dot(f,XtX1)
+        sigma_ = np.dot(sigma_, f)
+        sigma_ *= sigma*sqrt(sigma_)
+        ettatetta[i][0] = etta(x1,x2,x3,tetta) - t*sigma_
+        ettatetta[i][2] = etta(x1,x2,x3,tetta) + t*sigma_
+        ettatetta[i][1] = etta(x1,x2,x3,tetta) 
+        x3 += 0.1
+
+def SaveResultInTextFile(x1, x2, y, e, U):
     f = open("results.txt", 'w')
     res = '(x1,\t x2)\t\t u\t\t\t e\t\t\t y\t\t\t y^\t\t\t y-y^\n'
     f.write(res)
@@ -188,20 +201,27 @@ def SaveResultInTextFile():
         f.write(res)
     f.close()
 
+def SaveResultInCSVFile(x1, x2, y, e, U):
+    data = dict(col1=x1, col2=x2, col3=y, col4=e, col5=U)
+    df = pd.DataFrame(data)
+    df.to_csv(r'results.csv', sep=';', header=False, index=False)
+
 def ReadValueFromCSVFile():
         with open('results.csv', 'r') as csv_file:
-            csv_reader = csv.reader(csv_file, delimiter='\t')
+            csv_reader = csv.reader(csv_file, delimiter=';')
             dataForAnalys = np.array(list(csv_reader))
             np.delete(dataForAnalys, (0), axis=0)
             x1 = dataForAnalys[:, 0]
             x1 = [float(x) for x in x1]
             x2 = dataForAnalys[:, 1]
             x2 = [float(x) for x in x2]
-            y = dataForAnalys[:, 3]
+            y = dataForAnalys[:, 2]
             y = [float(y) for y in y]
-            e = dataForAnalys[:, 4]
+            e = dataForAnalys[:, 3]
             e = [float(e) for e in e]
-            return x1, x2, e, y
+            U = dataForAnalys[:, 4]
+            U = [float(U) for U in U]
+            return x1, x2, e, y, U
 
 def create_table(df):
     fig, ax = plot.subplots()
@@ -213,54 +233,61 @@ def create_table(df):
     table.set_fontsize(8)
     fig.tight_layout()
 
-x1,x2 = Get_factors()
-U = Get_U()
-sigma = Get_sigma(U)
-e = Get_e()
-y = Get_y()
+def main():
+    #x1,x2 = Get_factors()
+    #U = Get_U(x1,x2)
+    #e = Get_e(U, sigma)
+    #y = Get_y(U, e)
+    x1, x2, e, y, U = ReadValueFromCSVFile()
+    sigma = Get_sigma(U)
+    X = Get_X(x1, x2)
+    tettaR = Get_tettaR(X, y)
 
-X = Get_X()
-tettaR = Get_tettaR()
+    y2 = Get_y2(X, tettaR)
+    eR = np.array(y) - np.array(y2)
 
-y2 = Get_y2()
-eR = np.array(y) - np.array(y2)
+    sigmaR = Get_sigmaR(eR, tettaR)
+    F = sigmaR/sigma
 
-sigmaR = Get_sigmaR()
-F = sigmaR/sigma
+    #lw2:2 confidence interval
+    Ft = stats.t.ppf(1 - alpha, N - len(tetta))
+    djj = Get_djj(X)
+    D_upper, D_lower = GetConfidenceInterval(tettaR, Ft, sigmaR, djj)
+    df = pd.DataFrame()
+    df['Нижнее значение'] = D_lower
+    df['Тетта'] = tetta
+    df['Оценка тетта'] = tettaR
+    df['Верхнее значение'] = D_upper
 
-#lw2:2 confidence interval
-Ft = stats.t.ppf(1 - alpha, N - len(tetta))
-djj = Get_djj(X)
-D_upper, D_lower = GetConfidenceInterval(tettaR, Ft, sigmaR, djj)
-df = pd.DataFrame()
-df['Нижнее значение'] = D_lower
-df['Тетта'] = tetta
-df['Оценка тетта'] = tettaR
-df['Верхнее значение'] = D_upper
+    #lw2:3
+    Fstat = Get_StatF(tettaR, djj, sigmaR)
+    Ff = stats.f.ppf(1-alpha/2, 1, N - len(tetta))
+    resultEx3 = []
+    for i in range(len(tettaR)):
+        if(Fstat[i] < Ff):
+            resultEx3.append('+')
+        else:
+            resultEx3.append('-')
+    df['F stat'] = Fstat
+    df['Отверг'] = resultEx3
 
-#lw2:3
-Fstat = Get_StatF(tettaR, djj, sigmaR)
-Ff = stats.f.ppf(1-alpha/2, 1, N - len(tetta))
-resultEx3 = []
-for i in range(len(tettaR)):
-    if(Fstat[i] < Ff):
-        resultEx3.append('+')
+    resultEx4 = []
+
+    #lw2:4
+    RRS = Get_RRS(y, X, tettaR)
+    RRSH = Get_RRSH(y)
+    F_valHip = Get_valHip(RRS, RRSH, N, len(tettaR))
+    if(F_valHip < Ff):
+        resultEx4.append('+')
     else:
-        resultEx3.append('-')
-df['F stat'] = Fstat
-df['Отверг'] = resultEx3
+        resultEx4.append('-')
 
-resultEx4 = []
+    create_table(df)
 
-#lw2:4
-RRS = Get_RRS(y, X, tettaR)
-RRSH = Get_RRSH(y)
-F_valHip = Get_valHip(RRS, RRSH, N, len(tettaR))
-if(F_valHip < Ff):
-    resultEx4.append('+')
-else:
-    resultEx4.append('-')
-
-create_table(df)
-
-SaveResultInTextFile()
+    print('sigma = ' + str(round(sigma, 5)))
+    print('sigmaR = ' + str(round(sigmaR, 5)))
+    print('F = ' + str(round(sigmaR/sigma, 5)))
+    #SaveResultInTextFile(x1, x2, y, e, U)
+    #SaveResultInCSVFile(x1, x2, y, e, U)
+    
+main()
