@@ -5,6 +5,8 @@ from math import sqrt
 import csv
 import pandas as pd
 import matplotlib.pyplot as plot
+from scipy.stats import t as Student
+from scipy.stats import f as Fisher
 
 lvl_x1=4
 lvl_x2=5
@@ -174,23 +176,53 @@ def Get_RRSH(y):
 def Get_valHip(RSS, RSSH, N, m):
     return ((RSSH - RSS)/ (m - 1)) / (RSS / (N - m))
 
-def Get_confidenceIntervalForMO():
-    x1 = 0
-    x2 = 0
-    x3 = -1 
-    ettatetta = [[0]*3 for i in range (21)]
-    for i in range(21):
-        f = [1,x1,x1**2,x2,x2**2,x3,x3**2,x1*x2,x1*x3,x2*x3]
-        sigma_ =  np.dot(f,XtX1)
-        sigma_ = np.dot(sigma_, f)
-        sigma_ *= sigma*sqrt(sigma_)
-        ettatetta[i][0] = etta(x1,x2,x3,tetta) - t*sigma_
-        ettatetta[i][2] = etta(x1,x2,x3,tetta) + t*sigma_
-        ettatetta[i][1] = etta(x1,x2,x3,tetta) 
-        x3 += 0.1
+f = lambda x1, x2: [1, x1, x2, x1**2, x2**2, x1*x2]
+def Get_confidenceIntervalForMOandRespond(x1, x2, uM, sigma, sigmaR, tettaR, X):
+    x1 = np.sort(x1)
+    x2 = np.sort(x2)
+    M_upper=[]
+    M_lower=[]
+    respond_upper=[]
+    respond_lower=[]
+    u_dov = u_vec(x1, x2, tettaR)
+    Fs = Student.ppf(1 - alpha/2, N - len(tettaR))
 
-def SaveResultInTextFile(x1, x2, y, e, U):
-    f = open("results.txt", 'w')
+    for i in range(len(uM)):
+        Xtemp = np.linalg.inv(np.matrix(X).transpose() * np.matrix(X))
+        fx = np.array(f(x1[i], 0))
+        #fx = np.array(f(0, x2[i]))
+        vkl1 = np.matmul(fx.transpose(), Xtemp) 
+        vkl2 = vkl1@fx.T
+        vkl = sigma * float(np.sqrt(vkl2))
+        M_upper.append(u_dov[i] - (Fs * vkl)) 
+        M_lower.append(u_dov[i] + (Fs * vkl))
+
+        vkl_otkl = float(sigmaR * (1 + vkl2))
+        respond_lower.append(u_dov[i] - (Fs * vkl_otkl)) 
+        respond_upper.append(u_dov[i] + (Fs * vkl_otkl))
+
+    return M_upper, M_lower, respond_lower, respond_upper, u_dov
+
+def create_plot(data1, data2, data3, x, t=0): 
+    fig, ax = plot.subplots() 
+    if (t == 0):
+        ax.set_title("Доверительный интервал для математичсекого ожидания.") 
+    else:
+        ax.set_title("Доверительный интервал для отклика.") 
+    ax.plot(x, data1, label='Левая граница') 
+    ax.plot(x, data2, label='Теоретическое значение') 
+    ax.plot(x, data3, label='Правая граница') 
+    ax.set_ylabel("у") 
+    ax.set_xlabel("х") 
+    ax.legend() 
+    ax.grid() 
+    fig.set_figheight(5) 
+    fig.set_figwidth(16) 
+    plot.show() 
+    plot.show()
+
+def SaveDataInTextFile(x1, x2, y, e, U):
+    f = open("data.txt", 'w')
     res = '(x1,\t x2)\t\t u\t\t\t e\t\t\t y\t\t\t y^\t\t\t y-y^\n'
     f.write(res)
     for i in range(len(y)):
@@ -201,13 +233,13 @@ def SaveResultInTextFile(x1, x2, y, e, U):
         f.write(res)
     f.close()
 
-def SaveResultInCSVFile(x1, x2, y, e, U):
+def SaveDataInCSVFile(x1, x2, y, e, U):
     data = dict(col1=x1, col2=x2, col3=y, col4=e, col5=U)
     df = pd.DataFrame(data)
-    df.to_csv(r'results.csv', sep=';', header=False, index=False)
+    df.to_csv(r'data.csv', sep=';', header=False, index=False)
 
-def ReadValueFromCSVFile():
-        with open('results.csv', 'r') as csv_file:
+def ReadDataFromCSVFile():
+        with open('data.csv', 'r') as csv_file:
             csv_reader = csv.reader(csv_file, delimiter=';')
             dataForAnalys = np.array(list(csv_reader))
             np.delete(dataForAnalys, (0), axis=0)
@@ -223,23 +255,17 @@ def ReadValueFromCSVFile():
             U = [float(U) for U in U]
             return x1, x2, e, y, U
 
-def create_table(df):
-    fig, ax = plot.subplots()
-    fig.patch.set_visible(False)
-    ax.axis('off')
-    ax.axis('tight')
-    table = ax.table(cellText=df.values, colLabels=df.columns, loc='center')   
-    table.auto_set_font_size(False)
-    table.set_fontsize(8)
-    fig.tight_layout()
-
 def main():
+#lw1
     #x1,x2 = Get_factors()
     #U = Get_U(x1,x2)
+    x1, x2, e, y, U = ReadDataFromCSVFile()
+    sigma = Get_sigma(U)
     #e = Get_e(U, sigma)
     #y = Get_y(U, e)
-    x1, x2, e, y, U = ReadValueFromCSVFile()
-    sigma = Get_sigma(U)
+    
+#lw2
+    f = open("All results.txt", 'w')
     X = Get_X(x1, x2)
     tettaR = Get_tettaR(X, y)
 
@@ -249,17 +275,24 @@ def main():
     sigmaR = Get_sigmaR(eR, tettaR)
     F = sigmaR/sigma
 
-    #lw2:2 confidence interval
+    f.write("tetta = " + str(tetta) + '\n')
+    f.write("tettaR = " + str(tettaR) + '\n')
+    f.write("sigma = " + str(round(sigma, 5)) + '\n')
+    f.write("sigmaR = " + str(round(sigmaR, 5)) + '\n')
+    f.write("F = " + str(round(sigmaR/sigma, 5)) + '\n\n\n')
+    
+#lw3
+    #lw3:2 Доверительный интервал
     Ft = stats.t.ppf(1 - alpha, N - len(tetta))
     djj = Get_djj(X)
     D_upper, D_lower = GetConfidenceInterval(tettaR, Ft, sigmaR, djj)
-    df = pd.DataFrame()
-    df['Нижнее значение'] = D_lower
-    df['Тетта'] = tetta
-    df['Оценка тетта'] = tettaR
-    df['Верхнее значение'] = D_upper
+    f.write('Confidence interval\n')
+    f.write('Lower limit\t\ttetta\t\tThetaR\t\t\tUpper limit' + '\n')
+    for i in range(len(tettaR)):
+        f.write(str(D_lower[i]) + '\t\t\t' + str(tetta[i]) + '\t\t\t' + str(tettaR[i]) + '\t\t\t' + str(D_upper[i]) + '\n')
 
-    #lw2:3
+
+    #lw3:3 Вычисление гипотезы о незначимости параметров
     Fstat = Get_StatF(tettaR, djj, sigmaR)
     Ff = stats.f.ppf(1-alpha/2, 1, N - len(tetta))
     resultEx3 = []
@@ -268,12 +301,15 @@ def main():
             resultEx3.append('+')
         else:
             resultEx3.append('-')
-    df['F stat'] = Fstat
-    df['Отверг'] = resultEx3
+
+    f.write('\n\nF\t\t\tParameter estimation\t\tResult' + '\n')
+    for i in range(len(tettaR)):
+        f.write(str(Fstat[i]) + '\t\t' + str(tettaR[i]) + '\t\t\t\t\t\t' + str(resultEx3[i]) + '\n')
+    f.write('Fstat = ' + str(Ff)+ '\n')
 
     resultEx4 = []
 
-    #lw2:4
+    #lw3:4 Вычисление гипотезы о незначимости гипотезы
     RRS = Get_RRS(y, X, tettaR)
     RRSH = Get_RRSH(y)
     F_valHip = Get_valHip(RRS, RRSH, N, len(tettaR))
@@ -282,12 +318,19 @@ def main():
     else:
         resultEx4.append('-')
 
-    create_table(df)
-
-    print('sigma = ' + str(round(sigma, 5)))
-    print('sigmaR = ' + str(round(sigmaR, 5)))
-    print('F = ' + str(round(sigmaR/sigma, 5)))
+    f.write('\n\nF\t\t\t\t\t\tQuantile of F-distribution\tHypothesis' + '\n')
+    f.write(str(F_valHip) + '\t\t' + str(Ff) + '\t\t\t' + str(resultEx4[0]))
+    
+    #lw3:5 Вычисление доверительного интервала мат ожиадния и отклика
+    uM = u_vec(x1, x2, tettaR)
+    M_upper, M_lower, respond_upper, respond_lower, u_dov = Get_confidenceIntervalForMOandRespond(x1, x2, uM, sigma, sigmaR, tettaR, X) 
+    create_plot(M_lower, u_dov, M_upper, np.sort(x1), t = 0) 
+    create_plot(respond_lower, u_dov, respond_upper, np.sort(x1), t = 1) 
+    #create_plot(M_lower, u_dov, M_upper, np.sort(x2), t = 0) 
+    #create_plot(respond_lower, u_dov, respond_upper, np.sort(x2), t = 1)
+    
+    
     #SaveResultInTextFile(x1, x2, y, e, U)
     #SaveResultInCSVFile(x1, x2, y, e, U)
-    
+    plot.pause()
 main()
